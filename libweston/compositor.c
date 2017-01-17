@@ -458,6 +458,7 @@ weston_surface_create(struct weston_compositor *compositor)
 
 	wl_signal_init(&surface->destroy_signal);
 	wl_signal_init(&surface->commit_signal);
+	wl_signal_init(&surface->commit_finalize_signal);
 
 	surface->compositor = compositor;
 	surface->ref_count = 1;
@@ -3024,6 +3025,7 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 {
 	struct weston_surface *surface = wl_resource_get_user_data(resource);
 	struct weston_subsurface *sub = weston_surface_to_subsurface(surface);
+	struct weston_surface *main_surface;
 
 	if (!weston_surface_is_pending_viewport_source_valid(surface)) {
 		assert(surface->viewport_resource);
@@ -3047,6 +3049,8 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 
 	if (sub) {
 		weston_subsurface_commit(sub);
+		main_surface = weston_surface_get_main_surface(sub->surface);
+		wl_signal_emit(&main_surface->commit_finalize_signal, main_surface);
 		return;
 	}
 
@@ -3056,6 +3060,7 @@ surface_commit(struct wl_client *client, struct wl_resource *resource)
 		if (sub->surface != surface)
 			weston_subsurface_parent_commit(sub, 0);
 	}
+	wl_signal_emit(&surface->commit_finalize_signal, surface);
 }
 
 static void
