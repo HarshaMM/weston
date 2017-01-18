@@ -1127,6 +1127,10 @@ struct weston_surface {
 	struct wl_signal commit_signal;
 	/*Indicates end of all sub surface commits on the surface*/
 	struct wl_signal commit_finalize_signal;
+	/*signalled when this surface is added as a sub-surface*/
+	struct wl_signal subsurface_add_signal;
+	/*signalled when this surface is removed as a sub-surface*/
+	struct wl_signal subsurface_remove_signal;
 
 	/** Damage in local coordinates from the client, for tex upload. */
 	pixman_region32_t damage;

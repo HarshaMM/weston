@@ -459,6 +459,8 @@ weston_surface_create(struct weston_compositor *compositor)
 	wl_signal_init(&surface->destroy_signal);
 	wl_signal_init(&surface->commit_signal);
 	wl_signal_init(&surface->commit_finalize_signal);
+	wl_signal_init(&surface->subsurface_add_signal);
+	wl_signal_init(&surface->subsurface_remove_signal);
 
 	surface->compositor = compositor;
 	surface->ref_count = 1;
@@ -3831,6 +3833,8 @@ weston_subsurface_destroy(struct weston_subsurface *sub)
 		sub->surface->committed = NULL;
 		sub->surface->committed_private = NULL;
 		weston_surface_set_label_func(sub->surface, NULL);
+
+		wl_signal_emit(&sub->surface->subsurface_remove_signal, sub->surface);
 	} else {
 		/* the dummy weston_subsurface for the parent itself */
 		assert(sub->parent_destroy_listener.notify == NULL);
@@ -3879,6 +3883,8 @@ weston_subsurface_create(uint32_t id, struct weston_surface *surface,
 	weston_surface_state_init(&sub->cached);
 	sub->cached_buffer_ref.buffer = NULL;
 	sub->synchronized = 1;
+
+	wl_signal_emit(&surface->subsurface_add_signal, surface);
 
 	return sub;
 }
