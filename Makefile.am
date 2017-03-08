@@ -182,6 +182,21 @@ nodist_libweston_@LIBWESTON_MAJOR@_la_SOURCES =				\
 
 BUILT_SOURCES += $(nodist_libweston_@LIBWESTON_MAJOR@_la_SOURCES)
 
+lib_LTLIBRARIES += libcompositor_launch.la
+libcompositor_launch_la_CPPFLAGS = $(AM_CPPFLAGS) -DIN_WESTON \
+				 -DMODULEDIR='"$(moduledir)"' \
+				 -DXSERVER_PATH='"@XSERVER_PATH@"'
+libcompositor_launch_la_CFLAGS = $(AM_CFLAGS) $(COMPOSITOR_CFLAGS) $(LIBUNWIND_CFLAGS)
+libcompositor_launch_la_LIBADD =		\
+	libweston-@LIBWESTON_MAJOR@.la  libshared.la $(DLOPEN_LIBS) \
+	$(CLOCK_GETRES_LIBS) -lm
+
+libcompositor_launch_la_SOURCES =	\
+	compositor/weston-screenshooter.c		\
+	compositor/text-backend.c			\
+	compositor/xwayland.c				\
+	compositor/compositor_launch.c
+
 bin_PROGRAMS += weston
 
 weston_LDFLAGS = -export-dynamic
@@ -189,17 +204,13 @@ weston_CPPFLAGS = $(AM_CPPFLAGS) -DIN_WESTON 		\
 				 -DMODULEDIR='"$(moduledir)"' \
 				 -DXSERVER_PATH='"@XSERVER_PATH@"'
 weston_CFLAGS = $(AM_CFLAGS) $(COMPOSITOR_CFLAGS) $(LIBUNWIND_CFLAGS)
-weston_LDADD = libshared.la libweston-@LIBWESTON_MAJOR@.la \
+weston_LDADD = libshared.la libweston-@LIBWESTON_MAJOR@.la libcompositor_launch.la \
 	$(COMPOSITOR_LIBS) $(LIBUNWIND_LIBS) \
 	$(DLOPEN_LIBS) $(LIBINPUT_BACKEND_LIBS) \
 	$(CLOCK_GETRES_LIBS) \
 	-lm
 
-weston_SOURCES = 					\
-	compositor/main.c				\
-	compositor/weston-screenshooter.c		\
-	compositor/text-backend.c			\
-	compositor/xwayland.c
+weston_SOURCES = compositor/main.c
 
 # Track this dependency explicitly instead of using BUILT_SOURCES.  We
 # add BUILT_SOURCES to CLEANFILES, but we want to keep git-version.h
@@ -273,7 +284,8 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = \
 	libweston/libweston-${LIBWESTON_MAJOR}.pc \
 	libweston-desktop/libweston-desktop-${LIBWESTON_MAJOR}.pc \
-	compositor/weston.pc
+	compositor/weston.pc \
+	compositor/compositor_launch.pc
 
 wayland_sessiondir = $(datadir)/wayland-sessions
 dist_wayland_session_DATA = compositor/weston.desktop
@@ -297,6 +309,9 @@ libwestoninclude_HEADERS =			\
 
 libwestoninclude_HEADERS +=			\
 	libweston-desktop/libweston-desktop.h
+
+libcompositor_launchincludedir = $(includedir)/weston
+libcompositor_launchinclude_HEADERS = compositor/compositor_launch.h
 
 westonincludedir = $(includedir)/weston
 westoninclude_HEADERS = compositor/weston.h

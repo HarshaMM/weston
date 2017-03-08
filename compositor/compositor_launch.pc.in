@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: compositor_launch API
+Description: Header files for compositor launch assistance
+Version: @WESTON_VERSION@
+Requires.private: wayland-server libweston-@LIBWESTON_MAJOR@
+Cflags: -I${includedir}/weston
+Libs: -L${libdir} -lcompositor_launch
