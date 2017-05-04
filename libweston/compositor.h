@@ -176,6 +176,7 @@ struct weston_output {
 	struct weston_output_zoom zoom;
 	int dirty;
 	struct wl_signal frame_signal;
+	struct wl_signal frame_finish_signal;
 	struct wl_signal destroy_signal;
 	int move_x, move_y;
 	uint32_t frame_time; /* presentation timestamp in milliseconds */

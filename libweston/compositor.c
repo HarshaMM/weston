@@ -2420,6 +2420,10 @@ weston_output_finish_frame(struct weston_output *output,
 		output_repaint_timer_handler(output);
 	else
 		wl_event_source_timer_update(output->repaint_timer, msec);
+
+	/*Provide a signal to the external renderer that flip to
+	 * display is complete*/
+	wl_signal_emit(&output->frame_finish_signal, output);
 }
 
 static void
@@ -4629,6 +4633,7 @@ weston_output_enable(struct weston_output *output)
 	weston_output_damage(output);
 
 	wl_signal_init(&output->frame_signal);
+	wl_signal_init(&output->frame_finish_signal);
 	wl_signal_init(&output->destroy_signal);
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->resource_list);
