@@ -182,6 +182,8 @@ struct drm_output {
 
 	struct vaapi_recorder *recorder;
 	struct wl_listener recorder_frame_listener;
+
+	bool swap_control_external;
 };
 
 /*
@@ -588,24 +590,8 @@ drm_output_prepare_scanout_view(struct drm_output *output,
 static void
 drm_output_render_gl(struct drm_output *output, pixman_region32_t *damage)
 {
-	struct drm_backend *b = to_drm_backend(output->base.compositor);
-	struct gbm_bo *bo;
-
 	output->base.compositor->renderer->repaint_output(&output->base,
 							  damage);
-
-	bo = gbm_surface_lock_front_buffer(output->gbm_surface);
-	if (!bo) {
-		weston_log("failed to lock front buffer: %m\n");
-		return;
-	}
-
-	output->next = drm_fb_get_from_bo(bo, b, output->gbm_format);
-	if (!output->next) {
-		weston_log("failed to get drm_fb for bo\n");
-		gbm_surface_release_buffer(output->gbm_surface, bo);
-		return;
-	}
 }
 
 static void
@@ -697,23 +683,39 @@ drm_waitvblank_pipe(struct drm_output *output)
 }
 
 static int
-drm_output_repaint(struct weston_output *output_base,
-		   pixman_region32_t *damage)
+drm_output_swap_buffer(struct weston_output *output_base)
 {
 	struct drm_output *output = to_drm_output(output_base);
 	struct drm_backend *backend =
 		to_drm_backend(output->base.compositor);
 	struct drm_sprite *s;
 	struct drm_mode *mode;
+	struct gbm_bo *bo;
 	int ret = 0;
 
 	if (output->disable_pending || output->destroy_pending)
 		return -1;
 
-	if (!output->next)
-		drm_output_render(output, damage);
-	if (!output->next)
-		return -1;
+	/* Swap only if the swap control is external. If it is not
+	 * external control then renderer would have swapped the buffer.
+	 * It is responsibility of weston plugins to set up appropriate
+	 * renderer and backend states.*/
+	if (output->swap_control_external)
+		gl_renderer->output_swap_buffer(output_base);
+
+	if (!backend->use_pixman) {
+		bo = gbm_surface_lock_front_buffer(output->gbm_surface);
+		if (!bo) {
+			weston_log("failed to lock front buffer: %m\n");
+		} else {
+			output->next = drm_fb_get_from_bo(bo, backend, output->gbm_format);
+			if (!output->next) {
+				weston_log("failed to get drm_fb for bo\n");
+				gbm_surface_release_buffer(output->gbm_surface, bo);
+				return -1;
+			}
+		}
+	}
 
 	mode = container_of(output->base.current_mode, struct drm_mode, base);
 	if (!output->current ||
@@ -794,6 +796,37 @@ err_pageflip:
 	}
 
 	return -1;
+}
+
+static int
+drm_output_repaint(struct weston_output *output_base,
+		   pixman_region32_t *damage)
+{
+	struct drm_output *output = to_drm_output(output_base);
+	struct weston_compositor *c = output->base.compositor;
+	struct drm_backend *b = to_drm_backend(c);
+	int ret = 0;
+
+	if (output->disable_pending || output->destroy_pending)
+		return -1;
+
+	if (!output->next)
+		drm_output_render(output, damage);
+	if ((!output->next) && (b->use_pixman))
+		return -1;
+
+	/*If Page Flip controlled externally then the buffer flip
+	 * to display should happen by means of a separate call to
+	 * drm_output_swap_buffer. Returning success will block
+	 * additional repaints till drm_output_swap_buffer is
+	 * carried out.*/
+
+	if (output->swap_control_external)
+		return 0;
+
+	ret = drm_output_swap_buffer(output_base);
+
+	return ret;
 }
 
 static void
@@ -2426,6 +2459,48 @@ drm_output_set_seat(struct weston_output *base,
 }
 
 static int
+drm_output_set_swap_control(struct weston_output *base, bool is_control_external)
+{
+	int ret = -1;
+	struct drm_output *output;
+
+	if (NULL != base) {
+		output = to_drm_output(base);
+		output->swap_control_external = is_control_external;
+		ret = 0;
+	}
+	return ret;
+}
+
+static int
+drm_output_get_swap_control(struct weston_output *base,
+							bool *swap_control)
+{
+	int ret = -1;
+	struct drm_output *output;
+
+	if ((NULL != base) && (NULL != swap_control)) {
+		output = to_drm_output(base);
+		*swap_control = output->swap_control_external;
+		ret = 0;
+	}
+	return ret;
+}
+
+static bool
+drm_output_is_swap_pending(struct weston_output *base)
+{
+	bool swap_pending = true;
+	struct drm_output *output;
+	if (NULL != base) {
+		output = to_drm_output(base);
+		swap_pending = (output->page_flip_pending == 1);
+	}
+	return swap_pending;
+}
+
+
+static int
 drm_output_enable(struct weston_output *base)
 {
 	struct drm_output *output = to_drm_output(base);
@@ -3185,6 +3260,10 @@ static const struct weston_drm_output_api api = {
 	drm_output_set_mode,
 	drm_output_set_gbm_format,
 	drm_output_set_seat,
+	drm_output_set_swap_control,
+	drm_output_get_swap_control,
+	drm_output_is_swap_pending,
+	drm_output_swap_buffer
 };
 
 static struct drm_backend *

@@ -122,6 +122,7 @@ struct x11_output {
 	void		       *buf;
 	uint8_t			depth;
 	int32_t                 scale;
+	bool 	swap_control_external;
 };
 
 struct window_delete_data {
@@ -387,6 +388,40 @@ x11_output_start_repaint_loop(struct weston_output *output)
 	weston_output_finish_frame(output, &ts, WP_PRESENTATION_FEEDBACK_INVALID);
 }
 
+
+static int
+x11_output_set_swap_control(struct weston_output *output_base,
+					bool swap_control_external)
+{
+	int ret = -1;
+	struct x11_output *output;
+
+	if (NULL != output_base) {
+		output = to_x11_output(output_base);
+		output->swap_control_external = swap_control_external;
+		ret = 0;
+	}
+	return ret;
+
+}
+
+static int
+x11_output_swap_buffer(struct weston_output *output_base)
+{
+	int ret = -1;
+	struct x11_output *output;
+
+	if (NULL != output_base) {
+		output = to_x11_output(output_base);
+		if (output->swap_control_external) {
+			ret = 0;
+			gl_renderer->output_swap_buffer(output_base);
+			wl_event_source_timer_update(output->finish_frame_timer, 10);
+		}
+	}
+	return ret;
+}
+
 static int
 x11_output_repaint_gl(struct weston_output *output_base,
 		      pixman_region32_t *damage)
@@ -399,7 +434,11 @@ x11_output_repaint_gl(struct weston_output *output_base,
 	pixman_region32_subtract(&ec->primary_plane.damage,
 				 &ec->primary_plane.damage, damage);
 
-	wl_event_source_timer_update(output->finish_frame_timer, 10);
+	/*When swap is controlled externally, trigger frame finish
+	 * in the api x11_output_swap_buffer*/
+
+	if (!output->swap_control_external)
+		wl_event_source_timer_update(output->finish_frame_timer, 10);
 	return 0;
 }
 
@@ -1650,6 +1689,8 @@ init_gl_renderer(struct x11_backend *b)
 static const struct weston_windowed_output_api api = {
 	x11_output_set_size,
 	x11_output_create,
+	x11_output_set_swap_control,
+	x11_output_swap_buffer
 };
 
 static struct x11_backend *

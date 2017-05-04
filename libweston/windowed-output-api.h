@@ -73,6 +73,36 @@ struct weston_windowed_output_api {
 	 */
 	int (*output_create)(struct weston_compositor *compositor,
 			     const char *name);
+
+	/** Control buffer swap for the windowed output.
+	 *
+	 * \param output 				output instance.
+	 * \param swap_control_external true: buffer swap is controlled
+	 * 								externally
+	 * 								false: buffer swap is done
+	 * 								done during repaint
+	 *
+	 * Returns 0 on success, -1 on failure.
+	 *
+	 * When swap control is set to external then repaint will not
+	 * do a buffer swap.
+	 */
+
+	int (*set_swap_control) (struct weston_output *output,
+						bool swap_control_external);
+
+	/** swap buffer to the windowed output.
+	 *
+	 * \param output 				output instance.
+	 *
+	 * Returns 0 on success, -1 on failure.
+	 *
+	 * When swap control is set to external then this API is
+	 * used to swap the output buffer. Swap to the output
+	 * can happen far later after repaint is done.
+	 */
+	int (*swap_buffer)(struct weston_output *output);
+
 };
 
 static inline const struct weston_windowed_output_api *

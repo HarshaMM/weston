@@ -133,6 +133,8 @@ struct wayland_output {
 	uint32_t scale;
 
 	struct wl_callback *frame_cb;
+
+	bool swap_control_external;
 };
 
 struct wayland_parent_output {
@@ -493,8 +495,13 @@ wayland_output_repaint_gl(struct weston_output *output_base,
 	struct wayland_output *output = to_wayland_output(output_base);
 	struct weston_compositor *ec = output->base.compositor;
 
-	output->frame_cb = wl_surface_frame(output->parent.surface);
-	wl_callback_add_listener(output->frame_cb, &frame_listener, output);
+	/* for external swap controel Buffer swap is done later by an external
+	 * application OR weston plugin. Hence install frame callback during
+	 *  wayland_output_swap_buffer call.*/
+	if (!output->swap_control_external) {
+		output->frame_cb = wl_surface_frame(output->parent.surface);
+		wl_callback_add_listener(output->frame_cb, &frame_listener, output);
+	}
 
 	wayland_output_update_gl_border(output);
 
@@ -1268,6 +1275,44 @@ wayland_output_create(struct weston_compositor *compositor, const char *name)
 	weston_compositor_add_pending_output(&output->base, compositor);
 
 	return 0;
+}
+
+static int
+wayland_output_set_swap_control(struct weston_output *output_base,
+					bool swap_control_external)
+{
+	int ret = -1;
+	struct wayland_output *output;
+
+	if (NULL != output_base) {
+		output = to_wayland_output(output_base);
+		output->swap_control_external = swap_control_external;
+		ret = 0;
+	}
+	return ret;
+
+}
+
+static int
+wayland_output_swap_buffer(struct weston_output *output_base)
+{
+	int ret = -1;
+	struct wayland_output *output;
+	struct weston_compositor *ec;
+
+	if (NULL != output_base) {
+		output = to_wayland_output(output_base);
+		ec = output->base.compositor;
+		if (output->swap_control_external) {
+			ret = 0;
+			output->frame_cb = wl_surface_frame(output->parent.surface);
+			wl_callback_add_listener(output->frame_cb,
+									&frame_listener, output);
+			gl_renderer->output_swap_buffer(output_base);
+		}
+	}
+	return ret;
+
 }
 
 static int
@@ -2570,6 +2615,8 @@ wayland_backend_destroy(struct wayland_backend *b)
 static const struct weston_windowed_output_api windowed_api = {
 	wayland_output_set_size,
 	wayland_output_create,
+	wayland_output_set_swap_control,
+	wayland_output_swap_buffer
 };
 
 static void

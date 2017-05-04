@@ -78,6 +78,18 @@ struct weston_drm_output_api {
 	 */
 	void (*set_seat)(struct weston_output *output,
 			 const char *seat);
+
+	/* Control when to swap buffer to display. This is useful
+	 * for an external gl_renderer*/
+	int (*set_swap_control) (struct weston_output *output,
+						bool block_swap);
+
+	int (*get_swap_control) (struct weston_output *output,
+						bool *is_swap_blocked);
+
+	bool (*is_swap_pending)(struct weston_output *output);
+
+	int (*swap_buffer)(struct weston_output *output_base);
 };
 
 static inline const struct weston_drm_output_api *
