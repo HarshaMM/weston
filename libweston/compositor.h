@@ -177,6 +177,7 @@ struct weston_output {
 	int dirty;
 	struct wl_signal frame_signal;
 	struct wl_signal frame_finish_signal;
+	struct wl_signal render_complete_signal;
 	struct wl_signal destroy_signal;
 	int move_x, move_y;
 	uint32_t frame_time; /* presentation timestamp in milliseconds */

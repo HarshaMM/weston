@@ -2327,6 +2327,9 @@ weston_output_repaint(struct weston_output *output)
 		animation->frame(animation, output, output->frame_time);
 	}
 
+	/*Signal hinting that the rendering for this output is complete*/
+	wl_signal_emit(&output->render_complete_signal, output);
+
 	TL_POINT("core_repaint_posted", TLP_OUTPUT(output), TLP_END);
 
 	return r;
@@ -4634,6 +4637,7 @@ weston_output_enable(struct weston_output *output)
 
 	wl_signal_init(&output->frame_signal);
 	wl_signal_init(&output->frame_finish_signal);
+	wl_signal_init(&output->render_complete_signal);
 	wl_signal_init(&output->destroy_signal);
 	wl_list_init(&output->animation_list);
 	wl_list_init(&output->resource_list);
