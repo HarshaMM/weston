@@ -303,6 +303,7 @@ libwestoninclude_HEADERS =			\
 	libweston/windowed-output-api.h		\
 	libweston/plugin-registry.h		\
 	libweston/timeline-object.h		\
+	libweston/gl-renderer.h			\
 	shared/matrix.h				\
 	shared/config-parser.h			\
 	shared/zalloc.h

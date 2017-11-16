@@ -23,8 +23,6 @@
  * SOFTWARE.
  */
 
-#include "config.h"
-
 #include <stdint.h>
 
 #include "compositor.h"
@@ -48,12 +46,50 @@ typedef intptr_t EGLNativeWindowType;
 #endif /* ENABLE_EGL */
 
 #define NO_EGL_PLATFORM 0
+#define GL_RENDERER_API_NAME "gl_renderer_api"
 
 enum gl_renderer_border_side {
 	GL_RENDERER_BORDER_TOP = 0,
 	GL_RENDERER_BORDER_LEFT = 1,
 	GL_RENDERER_BORDER_RIGHT = 2,
 	GL_RENDERER_BORDER_BOTTOM = 3,
+};
+
+enum gl_output_render_state {
+	GL_RENDERER_DO_COMPOSITION = 0,
+	GL_RENDERER_DO_NO_COMPOSITION,
+	GL_RENDERER_DO_COMPOSITION_NO_SWAP,
+	GL_RENDERER_OUTPUT_STATE_MAX
+};
+
+enum buffer_type {
+	BUFFER_TYPE_NULL,
+	BUFFER_TYPE_SOLID, /* internal solid color surfaces without a buffer */
+	BUFFER_TYPE_SHM,
+	BUFFER_TYPE_EGL,
+	BUFFER_TYPE_DMA
+};
+
+struct egl_image_info
+{
+	int      buf_fd;
+	int      buf_offset;
+	int32_t  stride;
+	int   	 gl_tex_target;
+	int   	 gl_tex_format;
+	EGLImageKHR image;
+};
+
+struct buffer_attrs
+{
+	int 	 width;
+	int  	 height;
+	int      y_inverted;
+    uint32_t num_images;
+	uint32_t dma_buf_format;
+	EGLint   egl_buf_format;
+	enum buffer_type  buf_type;
+	struct egl_image_info egl_img[4];
 };
 
 struct gl_renderer_interface {
@@ -69,6 +105,7 @@ struct gl_renderer_interface {
 			      const int n_ids);
 
 	EGLDisplay (*display)(struct weston_compositor *ec);
+	EGLContext (*context)(struct weston_compositor *ec);
 
 	int (*output_window_create)(struct weston_output *output,
 				    EGLNativeWindowType window_for_legacy,
@@ -114,5 +151,16 @@ struct gl_renderer_interface {
 				  int32_t tex_width, unsigned char *data);
 
 	void (*print_egl_error_state)(void);
+
+	void (*output_swap_buffer)(struct weston_output *output);
+
+	int (*output_render_state)(struct weston_output *west_output,
+			enum gl_output_render_state state);
+
+	int (*ref_egl_image)(struct weston_surface *ec,
+			struct weston_buffer *wbuf, struct buffer_attrs *buf_atr);
+
+	int (*unref_egl_image)(struct weston_surface *ec,
+			struct weston_buffer *wbuf, enum buffer_type buf_type);
 };
 
